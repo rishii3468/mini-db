@@ -1,0 +1,24 @@
+#include<sstream>
+#include<map>
+#include "structs.h"
+#include "parser.h"
+using namespace std;
+
+
+
+Query parse(const string& input){
+    stringstream ss(input);
+    Query q;
+    ss >> q.type;
+    string token;
+    while(ss >> token){
+        auto pos = token.find("=");
+        if(pos != string::npos){
+            string key = token.substr(0,pos);
+            string value = token.substr(pos+1);
+            q.data[key] = value;
+        }
+    }
+    return q;
+}
+
