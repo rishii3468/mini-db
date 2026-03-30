@@ -13,4 +13,6 @@ Record parseRow(std::string line, const std::vector<std::string>& headers);
 
 std::vector<Record> readAll();
 
+void createIndex(const string& attribute);
+
 #endif

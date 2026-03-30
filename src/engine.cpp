@@ -16,10 +16,10 @@ namespace fs = std::filesystem;
 const string DB_PATH = "data/database.csv";
 const string TMP_PATH = "data/database.tmp";
 
-unordered_map<int, 
 
 
 void insertRecord(const Query& query) {
+
     ofstream file(DB_PATH, ios::app);
 
     if (!file) {
@@ -28,7 +28,7 @@ void insertRecord(const Query& query) {
     }
 
     vector<string> headers = getHeaders();
-
+    
     bool first = true;
     for (auto& header : headers) {
         if (!first) file << ",";
@@ -44,15 +44,60 @@ void insertRecord(const Query& query) {
     }
 
     file << "\n";
+  
 }
 
 void selectRecord(const Query& query) {
     vector<Record> records = readAll();
+    auto headers = getHeaders();
     bool found = false;
+    if(query.data.size() == 1){
+        for(auto& [key,value] : query.data){
+            if(search_index.count(key)){
+                if(search_index[key].count(value)){
+                    ifstream file(DB_PATH, ios::binary);
+                    if (!file) {
+                        cout << "Error opening file\n";
+                        return;
+                    }
+                    vector<streampos> positions = search_index[key][value];
+                    file.clear();
 
+
+                    for (auto pos : positions) {
+                        file.seekg(pos);
+                        string line;
+                        if (!getline(file, line) || line.empty()) continue;
+                        
+                        // Remove line endings in binary mode
+                        if (!line.empty() && line.back() == '\r') line.pop_back();
+
+                        Record r = parseRow(line, headers);
+
+             
+                        for (const string& h : headers) {
+                          
+                            if (r.fields.count(h)) {
+                                cout << h << "=" << r.fields.at(h) << " ";
+                            }
+                        }
+                        cout << endl;
+                    }
+                    return;
+                   
+                }else{
+                    cout<<"No Records found.\n";
+                    return;
+                }
+            }else{
+                
+                cout << "[DEBUG] Index not found, doing full scan\n";
+                
+            }
+        }
+    }
     for (auto& record : records) {
         bool match = true;
-
         for (const auto& [key, value] : query.data) {
             if (record.fields.count(key) == 0 ||
                 record.fields.at(key) != value) {
@@ -72,7 +117,7 @@ void selectRecord(const Query& query) {
     }
 
     if (!found) {
-        cout << "No records match the query.\n";
+        cout << "No records found.\n";
     }
 }
 
@@ -134,6 +179,7 @@ void deleteRecord(const Query& query) {
     } catch (const fs::filesystem_error& e) {
         cout << "File error: " << e.what() << "\n";
     }
+
 }
 
 void updateRecord(const Query& q){
@@ -160,7 +206,6 @@ void updateRecord(const Query& q){
         for(auto& [key,value] : q.data){
             if(record.fields.count(key) && record.fields.at(key) == value){
                 match = true;
-                found = true;
                 break;
             }
         }
@@ -192,4 +237,5 @@ void updateRecord(const Query& q){
     } catch (const fs::filesystem_error& e) {
         cout << "File error: " << e.what() << "\n";
     }
+
 }

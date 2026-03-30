@@ -6,6 +6,8 @@
 #include <map>
 #include<iostream>
 #include<unordered_map>
+#include<vector>
+#include<fstream>
 using namespace std;
 
 struct Query {
@@ -18,5 +20,5 @@ struct Record{
     map<string,string> fields;
 };
 
-extern unordered_map<string, vector<int>> index;
+extern unordered_map<string, unordered_map<string, vector<streampos>>> search_index;
 #endif
