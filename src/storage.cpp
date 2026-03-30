@@ -3,13 +3,14 @@
 #include <fstream>
 #include <sstream>
 #include <map>
+#include<unordered_map>
 #include "structs.h"
 #include "storage.h"
 
 using namespace std;
 
 const string DB_PATH = "data/database.csv";
-
+unordered_map<string, vector<int>> index;
 
 vector<string> getHeaders() {
     ifstream file(DB_PATH);

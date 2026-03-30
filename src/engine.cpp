@@ -16,6 +16,8 @@ namespace fs = std::filesystem;
 const string DB_PATH = "data/database.csv";
 const string TMP_PATH = "data/database.tmp";
 
+unordered_map<int, 
+
 
 void insertRecord(const Query& query) {
     ofstream file(DB_PATH, ios::app);
@@ -120,6 +122,64 @@ void deleteRecord(const Query& query) {
             }
             file << "\n";
         }
+    }
+
+    file.close();
+
+    try {
+        if (fs::exists(DB_PATH)) {
+            fs::remove(DB_PATH);
+        }
+        fs::rename(TMP_PATH, DB_PATH);
+    } catch (const fs::filesystem_error& e) {
+        cout << "File error: " << e.what() << "\n";
+    }
+}
+
+void updateRecord(const Query& q){
+    if(q.data.empty()){
+        cout<< "Update command requires conditions.";
+        return;
+    }
+    if(q.newData.empty()){
+        cout<<"Update command requires new values.";
+    }
+    auto headers = getHeaders();
+    auto records = readAll();
+
+    ofstream file(TMP_PATH);
+
+    for(int i=0;i<headers.size();i++){
+        file << headers[i];
+        if(i != headers.size()-1) file << ",";
+    }
+    file << "\n";
+
+    for(auto& record : records){
+        bool match = false;
+        for(auto& [key,value] : q.data){
+            if(record.fields.count(key) && record.fields.at(key) == value){
+                match = true;
+                found = true;
+                break;
+            }
+        }
+        if(!match){
+            for(int i=0;i<headers.size();i++){
+                file << record.fields.at(headers[i]);
+                if(i != headers.size()-1) file << ",";
+            }
+        }else{
+            for(int i=0;i<headers.size();i++){
+                if(q.newData.count(headers[i])){
+                    file << q.newData.at(headers[i]);
+                }else{
+                    file << record.fields.at(headers[i]);
+                }
+                if(i != headers.size()-1) file << ",";
+            }   
+        }
+        file <<"\n";
     }
 
     file.close();

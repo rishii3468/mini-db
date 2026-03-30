@@ -6,5 +6,6 @@
 void insertRecord(const Query& query);
 void selectRecord(const Query& query);
 void deleteRecord(const Query& query);
+void updateRecord(const Query& query);
 
 #endif
