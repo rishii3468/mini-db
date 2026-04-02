@@ -14,11 +14,13 @@ struct Query {
     string type;
     map<string, string> data;
     map<string, string> newData;
+    string index_column;
 };
 
 struct Record{
     map<string,string> fields;
 };
 
-extern unordered_map<string, unordered_map<string, vector<streampos>>> search_index;
+using search_index_struct = unordered_map<string, unordered_map<string, vector<streampos>>>;
+extern search_index_struct search_index;
 #endif

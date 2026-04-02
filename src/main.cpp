@@ -7,18 +7,31 @@
 #include<cctype>
 #include<algorithm>
 #include<fstream>
+#include<filesystem>
 
 using namespace std;
+namespace fs = std::filesystem;
+string index_file = "./data/search_index.bin";
 
 int main(){
-    string input,attribute="id";
+    string input;
     search_index.clear();
-    createIndex(attribute);
+
+    if(fs::exists(index_file)){
+        loadIndexes(search_index,index_file);
+    }else{
+        createIndex("id");
+        cout<<"created index id"<<endl;
+    }
+    
     while(true){
         cout << "db> ";
         getline(cin,input);
         
-        if(input == "exit") break;
+        if(input == "exit"){
+            saveIndexes(search_index,index_file);
+            break;
+        }
 
         transform(input.begin(),input.end(),input.begin(),::tolower);
         Query q = parse(input);
@@ -26,21 +39,27 @@ int main(){
         transform(q.type.begin(),q.type.end(),q.type.begin(), ::tolower);
         if(q.type == "insert"){
             insertRecord(q);
-            search_index.clear();
-            createIndex(attribute);
+            for(auto& [attribute,_] : search_index){
+                createIndex(attribute);
+            }
         }
         else if(q.type == "select"){
             selectRecord(q);
         }
         else if(q.type == "delete"){
             deleteRecord(q);
-            search_index.clear();
-            createIndex(attribute);
+            for(auto& [attribute,_] : search_index){
+                createIndex(attribute);
+            }
         }
         else if(q.type == "update"){
             updateRecord(q);
-            search_index.clear();
-            createIndex(attribute);
+            for(auto& [attribute,_] : search_index){
+                createIndex(attribute);
+            }
+        }
+        else if(q.type == "index"){
+           createIndex(q.index_column,true);
         }
         else{
             cout<<"Invalid Syntax.\n";

@@ -21,6 +21,8 @@ Query parse(const string& input){
             string key = token.substr(0,pos);
             string value = token.substr(pos+1);
             q.data[key] = value;
+        }else{
+            q.index_column = token;
         }
         if(token == "set"){
             while(ss >> token){
