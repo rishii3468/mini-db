@@ -5,8 +5,11 @@ A lightweight file-based database engine built in C++ that supports basic query 
 ## Features
 
 * INSERT records
-* SELECT with conditions
+* SELECT with conditions (index-accelerated)
 * DELETE with filtering
+* UPDATE records
+* CREATE INDEX on any attribute
+* Binary index persistence (automatically saves/loads indexes)
 * CSV-based persistent storage
 * Modular architecture (parser, storage, execution)
 
@@ -15,7 +18,10 @@ A lightweight file-based database engine built in C++ that supports basic query 
 ```
 INSERT id=1 name=Rishi age=20
 SELECT *
+SELECT id=1
+UPDATE id=1 age=21
 DELETE id=1
+INDEX id
 ```
 
 ## Tech Stack
@@ -33,7 +39,8 @@ g++ src/*.cpp -Iinclude -o db
 
 ## Future Improvements
 
-* UPDATE queries
-* Indexing
-* SQL-like syntax
+* SQL-like syntax (SELECT with WHERE/JOIN clauses)
 * Transactions
+* Multiple indexes per column
+* Query optimization
+* Memory-based caching
