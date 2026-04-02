@@ -2,8 +2,7 @@
 #define PARSER_H
 #include<iostream>
 #include "structs.h"
-using namespace std;
 
-Query parse(const string& input);
+Query parse(const std::string& input);
 
 #endif

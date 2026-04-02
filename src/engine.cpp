@@ -9,25 +9,24 @@
 #include "engine.h"
 #include "parser.h"
 
-using namespace std;
 namespace fs = std::filesystem;
 
 
-const string DB_PATH = "data/database.csv";
-const string TMP_PATH = "data/database.tmp";
+const std::string DB_PATH = "data/database.csv";
+const std::string TMP_PATH = "data/database.tmp";
 
 
 
 void insertRecord(const Query& query) {
 
-    ofstream file(DB_PATH, ios::app);
+    std::ofstream file(DB_PATH, std::ios::app);
 
     if (!file) {
-        cout << "Error opening database file!\n";
+        std::cout << "Error opening database file!\n";
         return;
     }
 
-    vector<string> headers = getHeaders();
+    std::vector<std::string> headers = getHeaders();
     
     bool first = true;
     for (auto& header : headers) {
@@ -48,26 +47,31 @@ void insertRecord(const Query& query) {
 }
 
 void selectRecord(const Query& query) {
-    vector<Record> records = readAll();
+    if (query.data.empty()) {
+        std::cout << "SELECT requires at least one condition (e.g., select id=1)\n";
+        return;
+    }
+    
+    std::vector<Record> records = readAll();
     auto headers = getHeaders();
     bool found = false;
     if(query.data.size() == 1){
         for(auto& [key,value] : query.data){
             if(search_index.count(key)){
                 if(search_index[key].count(value)){
-                    ifstream file(DB_PATH, ios::binary);
+                    std::ifstream file(DB_PATH, std::ios::binary);
                     if (!file) {
-                        cout << "Error opening file\n";
+                        std::cout << "Error opening file\n";
                         return;
                     }
-                    vector<streampos> positions = search_index[key][value];
+                    std::vector<std::streampos> positions = search_index[key][value];
                     file.clear();
 
 
                     for (auto pos : positions) {
                         file.seekg(pos);
-                        string line;
-                        if (!getline(file, line) || line.empty()) continue;
+                        std::string line;
+                        if (!std::getline(file, line) || line.empty()) continue;
                         
                         // Remove line endings in binary mode
                         if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -75,23 +79,23 @@ void selectRecord(const Query& query) {
                         Record r = parseRow(line, headers);
 
              
-                        for (const string& h : headers) {
+                        for (const std::string& h : headers) {
                           
                             if (r.fields.count(h)) {
-                                cout << h << "=" << r.fields.at(h) << " ";
+                                std::cout << h << "=" << r.fields.at(h) << " ";
                             }
                         }
-                        cout << endl;
+                        std::cout << std::endl;
                     }
                     return;
                    
                 }else{
-                    cout<<"No Records found.\n";
+                    std::cout<<"No Records found.\n";
                     return;
                 }
             }else{
                 
-                cout << "[DEBUG] Index not found, doing full scan\n";
+                std::cout << "[DEBUG] Index not found, doing full scan\n";
                 
             }
         }
@@ -110,31 +114,31 @@ void selectRecord(const Query& query) {
             found = true;
 
             for (const auto& [key, value] : record.fields) {
-                cout << key << "=" << value << " ";
+                std::cout << key << "=" << value << " ";
             }
-            cout << "\n";
+            std::cout << "\n";
         }
     }
 
     if (!found) {
-        cout << "No records found.\n";
+        std::cout << "No records found.\n";
     }
 }
 
 
 void deleteRecord(const Query& query) {
     if (query.data.empty()) {
-        cout << "DELETE requires conditions\n";
+        std::cout << "DELETE requires conditions\n";
         return;
     }
 
-    vector<string> headers = getHeaders();
-    vector<Record> records = readAll();
+    std::vector<std::string> headers = getHeaders();
+    std::vector<Record> records = readAll();
 
-    ofstream file(TMP_PATH);
+    std::ofstream file(TMP_PATH);
 
     if (!file) {
-        cout << "Error creating temp file!\n";
+        std::cout << "Error creating temp file!\n";
         return;
     }
 
@@ -177,23 +181,23 @@ void deleteRecord(const Query& query) {
         }
         fs::rename(TMP_PATH, DB_PATH);
     } catch (const fs::filesystem_error& e) {
-        cout << "File error: " << e.what() << "\n";
+        std::cout << "File error: " << e.what() << "\n";
     }
 
 }
 
 void updateRecord(const Query& q){
     if(q.data.empty()){
-        cout<< "Update command requires conditions.";
+        std::cout<< "Update command requires conditions.";
         return;
     }
     if(q.newData.empty()){
-        cout<<"Update command requires new values.";
+        std::cout<<"Update command requires new values.";
     }
     auto headers = getHeaders();
     auto records = readAll();
 
-    ofstream file(TMP_PATH);
+    std::ofstream file(TMP_PATH);
 
     for(int i=0;i<headers.size();i++){
         file << headers[i];
@@ -235,7 +239,7 @@ void updateRecord(const Query& q){
         }
         fs::rename(TMP_PATH, DB_PATH);
     } catch (const fs::filesystem_error& e) {
-        cout << "File error: " << e.what() << "\n";
+        std::cout << "File error: " << e.what() << "\n";
     }
 
 }

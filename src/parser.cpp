@@ -6,20 +6,18 @@
 #include<algorithm>
 #include<cctype>
 
-using namespace std;
 
 
-
-Query parse(const string& input){
-    stringstream ss(input);
+Query parse(const std::string& input){
+    std::stringstream ss(input);
     Query q;
     ss >> q.type;
-    string token;
+    std::string token;
     while(ss >> token){
         auto pos = token.find("=");
-        if(pos != string::npos){
-            string key = token.substr(0,pos);
-            string value = token.substr(pos+1);
+        if(pos != std::string::npos){
+            std::string key = token.substr(0,pos);
+            std::string value = token.substr(pos+1);
             q.data[key] = value;
         }else{
             q.index_column = token;
@@ -27,9 +25,9 @@ Query parse(const string& input){
         if(token == "set"){
             while(ss >> token){
                 auto pos = token.find("=");
-                if(pos != string::npos){
-                    string key = token.substr(0,pos);
-                    string value = token.substr(pos+1);
+                if(pos != std::string::npos){
+                    std::string key = token.substr(0,pos);
+                    std::string value = token.substr(pos+1);
                     q.newData[key] = value;
                 }
             }

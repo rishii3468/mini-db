@@ -8,64 +8,43 @@
 #include "structs.h"
 #include "storage.h"
 
-using namespace std;
-
-const string DB_PATH = "data/database.csv";
+const std::string DB_PATH = "data/database.csv";
 search_index_struct search_index;
 
-vector<string> getHeaders() {
-    ifstream file(DB_PATH); 
-    vector<string> headers;
-    string line;
+std::vector<std::string> getHeaders() {
+    std::ifstream file(DB_PATH); 
+    std::vector<std::string> headers;
+    std::string line;
     if (!file) return headers;
 
-    getline(file, line);
+    std::getline(file, line);
 
     if (!line.empty() && line.back() == '\r') line.pop_back();
 
-    stringstream ss(line);
-    string col;
-    while (getline(ss, col, ',')) {
+    std::stringstream ss(line);
+    std::string col;
+    while (std::getline(ss, col, ',')) {
         if (!col.empty() && col.back() == '\r') col.pop_back();
         if (!col.empty()) headers.push_back(col);
     }
 
     return headers;
 }
-// vector<string> getHeaders() {
-//     ifstream file(DB_PATH);
-//     vector<string> headers;
-//     string line;
-//     if (!file) return headers;
-
-//     getline(file, line);
-
-//     if (!line.empty() && line.back() == '\r') line.pop_back();
-
-//     stringstream ss(line);
-//     string col;
-//     while (getline(ss, col, ',')) {
-//         if (!col.empty() && col.back() == '\r') col.pop_back();
-//         if (!col.empty()) headers.push_back(col);
-//     }
-
-//     return headers;
-// }
 
 
-Record parseRow(string line, const vector<string>& headers) {
-    stringstream ss(line);
-    string value;
+Record parseRow(std::string line, const std::vector<std::string>& headers) {
+    std::stringstream ss(line);
+    std::string value;
     Record r;
 
-    vector<string> values;
+    std::vector<std::string> values;
 
-    while (getline(ss, value, ',')) {
+    while (std::getline(ss, value, ',')) {
         values.push_back(value);
     }
 
     if (values.size() != headers.size()) {
-        cout << "[ERROR] Corrupted row: " << line << endl;
+        std::cout << "[ERROR] Corrupted row: " << line << std::endl;
         return r;
     }
 
@@ -77,24 +56,24 @@ Record parseRow(string line, const vector<string>& headers) {
 }
 
 
-vector<Record> readAll() {
-    ifstream file(DB_PATH);
+std::vector<Record> readAll() {
+    std::ifstream file(DB_PATH);
 
-    vector<Record> records;
-    string line;
+    std::vector<Record> records;
+    std::string line;
 
     if (!file) {
-        cout << "Error opening DB file\n";
+        std::cout << "Error opening DB file\n";
         return records;
     }
 
     auto headers = getHeaders();
 
 
-    getline(file, line);
+    std::getline(file, line);
 
 
-    while (getline(file, line)) {
+    while (std::getline(file, line)) {
         Record r = parseRow(line, headers);
         records.push_back(r);
     }
@@ -102,21 +81,20 @@ vector<Record> readAll() {
     return records;
 }
 
-void createIndex(const string& attribute,const bool& first) {
-    if(search_index.count(attribute)){
-        cout<<"Index already exists."<<endl;
-        return;
-    }
-    ifstream file(DB_PATH, ios::binary);
+void createIndex(const std::string& attribute,const bool& first) {
+    // Clear the existing index for this attribute
+    search_index[attribute].clear();
+    
+    std::ifstream file(DB_PATH, std::ios::binary);
     if (!file) return;
     auto headers = getHeaders();
-    string dummy;
-    getline(file, dummy); // Skip the header line
+    std::string dummy;
+    std::getline(file, dummy); // Skip the header line
 
-    string line;
+    std::string line;
     while (true) {
-        streampos pos = file.tellg(); // This is the start of the current record
-        if (!getline(file, line)) break;
+        std::streampos pos = file.tellg(); // This is the start of the current record
+        if (!std::getline(file, line)) break;
         
         // Remove line endings in binary mode
         if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -128,7 +106,7 @@ void createIndex(const string& attribute,const bool& first) {
             search_index[attribute][r.fields.at(attribute)].push_back(pos);
         }
     }
-    if(first) cout<<"Index created for attribute "<<attribute<<endl;
+    if(first) std::cout<<"Index created for attribute "<<attribute<<std::endl;
 }
 
 #include <iostream>
@@ -137,11 +115,8 @@ void createIndex(const string& attribute,const bool& first) {
 #include <unordered_map>
 #include <string>
 
-using namespace std;
-typedef unordered_map<string, unordered_map<string, vector<streampos>>> SearchIndex;
-
-void saveIndexes(search_index_struct& index, const string& filename) {
-    ofstream out(filename, ios::binary);
+void saveIndexes(search_index_struct& index, const std::string& filename) {
+    std::ofstream out(filename, std::ios::binary);
     
     size_t size1 = index.size();
     out.write(reinterpret_cast<const char*>(&size1), sizeof(size1));
@@ -161,7 +136,7 @@ void saveIndexes(search_index_struct& index, const string& filename) {
 
             size_t vec_size = positions.size();
             out.write(reinterpret_cast<const char*>(&vec_size), sizeof(vec_size));
-            for (streampos pos : positions) {
+            for (std::streampos pos : positions) {
                 long long p = static_cast<long long>(pos);
                 out.write(reinterpret_cast<const char*>(&p), sizeof(p));
             }
@@ -169,8 +144,8 @@ void saveIndexes(search_index_struct& index, const string& filename) {
     }
 }
 
-void loadIndexes(search_index_struct& index, const string& filename) {
-    ifstream in(filename, ios::binary);
+void loadIndexes(search_index_struct& index, const std::string& filename) {
+    std::ifstream in(filename, std::ios::binary);
     index.clear();
 
     size_t size1;
@@ -179,7 +154,7 @@ void loadIndexes(search_index_struct& index, const string& filename) {
     for (size_t i = 0; i < size1; ++i) {
         size_t len;
         in.read(reinterpret_cast<char*>(&len), sizeof(len));
-        string file(len, ' ');
+        std::string file(len, ' ');
         in.read(&file[0], len);
 
         size_t size2;
@@ -189,18 +164,18 @@ void loadIndexes(search_index_struct& index, const string& filename) {
         for (size_t j = 0; j < size2; ++j) {
             size_t word_len;
             in.read(reinterpret_cast<char*>(&word_len), sizeof(word_len));
-            string word(word_len, ' ');
+            std::string word(word_len, ' ');
             in.read(&word[0], word_len);
 
             size_t vec_size;
             in.read(reinterpret_cast<char*>(&vec_size), sizeof(vec_size));
-            vector<streampos>& positions = inner_map[word];
+            std::vector<std::streampos>& positions = inner_map[word];
             positions.reserve(vec_size);
 
             for (size_t k = 0; k < vec_size; ++k) {
                 long long p;
                 in.read(reinterpret_cast<char*>(&p), sizeof(p));
-                positions.push_back(static_cast<streampos>(p));
+                positions.push_back(static_cast<std::streampos>(p));
             }
         }
     }

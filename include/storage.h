@@ -13,10 +13,10 @@ Record parseRow(std::string line, const std::vector<std::string>& headers);
 
 std::vector<Record> readAll();
 
-void createIndex(const string& attribute,const bool& first=false);
+void createIndex(const std::string& attribute,const bool& first=false);
 
-void saveIndexes(search_index_struct& index, const string& filename);
+void saveIndexes(search_index_struct& index, const std::string& filename);
 
-void loadIndexes(search_index_struct& index, const string& filename);
+void loadIndexes(search_index_struct& index, const std::string& filename);
 
 #endif
