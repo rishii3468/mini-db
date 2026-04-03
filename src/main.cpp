@@ -37,35 +37,53 @@ int main(){
 
         std::transform(q.type.begin(),q.type.end(),q.type.begin(), ::tolower);
         if(q.type == "insert"){
+            if(!validate(q)){
+                continue;
+            }
             insertRecord(q);
             for(auto& [attribute,_] : search_index){
                 createIndex(attribute);
             }
         }
         else if(q.type == "select"){
+            if(!validate(q)){
+                continue;
+            }
             selectRecord(q);
         }
         else if(q.type == "delete"){
+            if(!validate(q)){
+                continue;
+            }
             deleteRecord(q);
             for(auto& [attribute,_] : search_index){
                 createIndex(attribute);
             }
         }
         else if(q.type == "update"){
+            if(!validate(q)){
+                continue;
+            }
             updateRecord(q);
             for(auto& [attribute,_] : search_index){
                 createIndex(attribute);
             }
         }
         else if(q.type == "index"){
+            if(!validate(q)){
+                continue;
+            }
             if(search_index.count(q.index_column)){
                 std::cout<<"Index already exists."<<std::endl;
                 continue;
             }
            createIndex(q.index_column,true);
         }
+        if(q.type == "help"){
+            std::cout<<"COMMANDS:\n1.INSERT(insert id=1 name=john age=34)\n2.SELECT(select id=4)\n3.DELETE(delete id=4)\n4.UPDATE(update id=4 set name=johndoe)\nINDEX(index age)\n";
+        }
         else{
-            std::cout<<"Invalid Syntax.\\n";
+            std::cout<<"Invalid Syntax.\n";
         }
     }
 }

@@ -5,4 +5,6 @@
 
 Query parse(const std::string& input);
 
+bool validate(const Query& q);
+
 #endif
