@@ -309,44 +309,6 @@ void createIndex(const std::string& attribute, const bool& first) {
     }
 }
 
-
-// void createIndex(const std::string& attribute,const bool& first) {
-//     // Clear the existing index for this attribute
-//     search_index[attribute].clear();
-    
-//     std::ifstream file(getDBPath(), std::ios::binary);
-//     if (!file) {
-//         std::cout << "Error opening DB file for index creation: " << getDBPath().string() << "\n";
-//         return;
-//     }
-//     auto headers = getHeaders();
-//     std::string dummy;
-//     std::getline(file, dummy); // Skip the header line
-
-//     std::string line;
-//     while (true) {
-//         std::streampos pos = file.tellg(); // This is the start of the current record
-//         if (!std::getline(file, line)) break;
-        
-//         // Remove line endings in binary mode
-//         if (!line.empty() && line.back() == '\r') line.pop_back();
-        
-//         if (line.empty()) continue;
-
-//         Record r = parseRow(line, headers);
-//         if (r.fields.count(attribute)) {
-//             search_index[attribute][r.fields.at(attribute)].push_back(pos);
-//         }
-//     }
-//     if(first) std::cout<<"Index created for attribute "<<attribute<<std::endl;
-// }
-
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <unordered_map>
-#include <string>
-
 void saveIndexes(const std::string& filename) {
     getIndexManager().saveToFile(filename);
 }

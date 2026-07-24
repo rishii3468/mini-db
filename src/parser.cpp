@@ -54,7 +54,7 @@ bool validate(const Query& q){
     std::transform(query_type.begin(), query_type.end(), query_type.begin(), ::tolower);
     
     if(query_type != "insert" && query_type != "select" && 
-       query_type != "update" && query_type != "delete"){
+       query_type != "update" && query_type != "delete" && query_type != "index"){
         std::cout<<"Error: Invalid query type '"<<q.type<<"'. Expected INSERT, SELECT, UPDATE, or DELETE."<<std::endl;
         return false;
     }
