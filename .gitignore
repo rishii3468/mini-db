@@ -1,5 +1,37 @@
-a.exe
-*.exe
+# Build outputs
+/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.ninja
+*.cmake
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# Compiled objects and binaries
 *.o
 *.obj
-*.vscode
+*.exe
+*.out
+mini_db
+mini_db.exe
+
+# Local/editor artifacts
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+
+# Local runtime files
+/data/*.tmp
+/data/*.bin
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db

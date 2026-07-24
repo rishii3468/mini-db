@@ -7,7 +7,7 @@
 #include<algorithm>
 #include<cctype>
 
-
+std::vector<std::string> getHeaders();
 
 Query parse(const std::string& input){
     std::stringstream ss(input);
@@ -15,6 +15,9 @@ Query parse(const std::string& input){
     ss >> q.type;
     std::string token;
     while(ss >> token){
+        if(token == "where"){
+            continue;
+        }
         auto pos = token.find("=");
         if(pos != std::string::npos){
             std::string key = token.substr(0,pos);

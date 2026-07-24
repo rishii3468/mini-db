@@ -20,6 +20,4 @@ struct Record{
     std::map<std::string,std::string> fields;
 };
 
-using search_index_struct = std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::streampos>>>;
-extern search_index_struct search_index;
 #endif

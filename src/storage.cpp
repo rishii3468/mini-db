@@ -3,19 +3,204 @@
 #include <fstream>
 #include <sstream>
 #include <map>
-#include<unordered_map>
-#include<string>
+#include <unordered_map>
+#include <string>
+#include <filesystem>
+#include <memory>
+
+
 #include "structs.h"
 #include "storage.h"
+#include "btree.h"
 
-const std::string DB_PATH = "data/database.csv";
-search_index_struct search_index;
+namespace fs = std::filesystem;
+
+static fs::path resolveDBPath() {
+    auto cwd = fs::current_path();
+    std::vector<fs::path> candidates = {
+        cwd / "data" / "database.csv",
+        cwd / ".." / "data" / "database.csv",
+        cwd / ".." / ".." / "data" / "database.csv"
+    };
+    for (auto const& p : candidates) {
+        if (fs::exists(p)) {
+            return fs::absolute(p);
+        }
+    }
+    return fs::absolute(candidates.front());
+}
+
+fs::path getDBPath() {
+    return resolveDBPath();
+}
+
+fs::path getTmpPath() {
+    return getDBPath().parent_path() / "database.tmp";
+}
+
+namespace {
+class IndexManager {
+private:
+    using IndexData = std::unordered_map<std::string, std::vector<std::streampos>>;
+    std::unordered_map<std::string, std::unique_ptr<BTreeIndex>> indexes_;
+    std::unordered_map<std::string, IndexData> index_data_;
+
+public:
+    void createIndex(const std::string& index_name) {
+        indexes_[index_name] = std::make_unique<BTreeIndex>();
+        index_data_[index_name];
+    }
+
+    void insert(const std::string& index_name, const std::string& key, std::streampos pos) {
+        auto it = indexes_.find(index_name);
+        if (it == indexes_.end()) {
+            return;
+        }
+
+        it->second->insert(key, pos);
+        index_data_[index_name][key].push_back(pos);
+    }
+
+    bool hasIndex(const std::string& index_name) const {
+        return index_data_.find(index_name) != index_data_.end();
+    }
+
+    std::vector<std::streampos> find(const std::string& index_name, const std::string& key) const {
+        auto data_it = index_data_.find(index_name);
+        if (data_it == index_data_.end()) {
+            return {};
+        }
+
+        auto value_it = data_it->second.find(key);
+        if (value_it == data_it->second.end()) {
+            return {};
+        }
+
+        return value_it->second;
+    }
+
+    std::vector<std::string> getIndexNames() const {
+        std::vector<std::string> names;
+        names.reserve(index_data_.size());
+        for (const auto& [name, _] : index_data_) {
+            names.push_back(name);
+        }
+        return names;
+    }
+
+    void saveToFile(const std::string& filename) const {
+        std::ofstream out(filename, std::ios::binary);
+        if (!out) {
+            return;
+        }
+
+        size_t index_count = index_data_.size();
+        out.write(reinterpret_cast<const char*>(&index_count), sizeof(index_count));
+
+        for (const auto& [attribute, values] : index_data_) {
+            size_t attribute_len = attribute.size();
+            out.write(reinterpret_cast<const char*>(&attribute_len), sizeof(attribute_len));
+            out.write(attribute.data(), attribute_len);
+
+            size_t value_count = values.size();
+            out.write(reinterpret_cast<const char*>(&value_count), sizeof(value_count));
+
+            for (const auto& [value, positions] : values) {
+                size_t value_len = value.size();
+                out.write(reinterpret_cast<const char*>(&value_len), sizeof(value_len));
+                out.write(value.data(), value_len);
+
+                size_t positions_count = positions.size();
+                out.write(reinterpret_cast<const char*>(&positions_count), sizeof(positions_count));
+                for (std::streampos pos : positions) {
+                    long long p = static_cast<long long>(pos);
+                    out.write(reinterpret_cast<const char*>(&p), sizeof(p));
+                }
+            }
+        }
+    }
+
+    void loadFromFile(const std::string& filename) {
+        std::ifstream in(filename, std::ios::binary);
+        if (!in) {
+            return;
+        }
+
+        index_data_.clear();
+        indexes_.clear();
+
+        size_t index_count = 0;
+        in.read(reinterpret_cast<char*>(&index_count), sizeof(index_count));
+
+        for (size_t i = 0; i < index_count; ++i) {
+            size_t attribute_len = 0;
+            in.read(reinterpret_cast<char*>(&attribute_len), sizeof(attribute_len));
+            std::string attribute(attribute_len, ' ');
+            in.read(&attribute[0], attribute_len);
+
+            size_t value_count = 0;
+            in.read(reinterpret_cast<char*>(&value_count), sizeof(value_count));
+
+            IndexData values;
+            for (size_t j = 0; j < value_count; ++j) {
+                size_t value_len = 0;
+                in.read(reinterpret_cast<char*>(&value_len), sizeof(value_len));
+                std::string value(value_len, ' ');
+                in.read(&value[0], value_len);
+
+                size_t positions_count = 0;
+                in.read(reinterpret_cast<char*>(&positions_count), sizeof(positions_count));
+
+                std::vector<std::streampos> positions;
+                positions.reserve(positions_count);
+                for (size_t k = 0; k < positions_count; ++k) {
+                    long long p = 0;
+                    in.read(reinterpret_cast<char*>(&p), sizeof(p));
+                    positions.push_back(static_cast<std::streampos>(p));
+                }
+
+                values[value] = std::move(positions);
+            }
+
+            index_data_[attribute] = std::move(values);
+            indexes_[attribute] = std::make_unique<BTreeIndex>();
+            for (const auto& [value, positions] : index_data_[attribute]) {
+                for (std::streampos pos : positions) {
+                    indexes_[attribute]->insert(value, pos);
+                }
+            }
+        }
+    }
+};
+
+IndexManager& getIndexManager() {
+    static IndexManager manager;
+    return manager;
+}
+}
+
+bool hasIndex(const std::string& attribute) {
+    return getIndexManager().hasIndex(attribute);
+}
+
+std::vector<std::streampos> findIndexedPositions(const std::string& attribute, const std::string& value) {
+    return getIndexManager().find(attribute, value);
+}
+
+std::vector<std::string> getIndexNames() {
+    return getIndexManager().getIndexNames();
+}
+
+
+
 
 std::vector<std::string> getHeaders() {
-    std::ifstream file(DB_PATH); 
+    std::ifstream file(getDBPath()); 
     std::vector<std::string> headers;
     std::string line;
     if (!file) return headers;
+
+    // file.seekg(0);
 
     std::getline(file, line);
 
@@ -57,18 +242,19 @@ Record parseRow(std::string line, const std::vector<std::string>& headers) {
 
 
 std::vector<Record> readAll() {
-    std::ifstream file(DB_PATH);
+    std::ifstream file(getDBPath());
 
     std::vector<Record> records;
     std::string line;
 
     if (!file) {
-        std::cout << "Error opening DB file\n";
+        std::cout << "Error opening DB file: " << getDBPath().string() << "\n";
         return records;
     }
 
     auto headers = getHeaders();
-
+    
+    // file.seekg(0);
 
     std::getline(file, line);
 
@@ -81,33 +267,79 @@ std::vector<Record> readAll() {
     return records;
 }
 
-void createIndex(const std::string& attribute,const bool& first) {
-    // Clear the existing index for this attribute
-    search_index[attribute].clear();
-    
-    std::ifstream file(DB_PATH, std::ios::binary);
-    if (!file) return;
+void createIndex(const std::string& attribute, const bool& first) {
+    auto& indexManager = getIndexManager();
+    indexManager.createIndex(attribute);
+
+    std::ifstream file(getDBPath(), std::ios::binary);
+    if (!file) {
+        std::cout << "Error opening DB file for index creation: " << getDBPath().string() << "\n";
+        return;
+    }
+
     auto headers = getHeaders();
-    std::string dummy;
-    std::getline(file, dummy); // Skip the header line
+    std::string headerLine;
+    if (!std::getline(file, headerLine)) {
+        return;
+    }
 
     std::string line;
     while (true) {
-        std::streampos pos = file.tellg(); // This is the start of the current record
-        if (!std::getline(file, line)) break;
-        
-        // Remove line endings in binary mode
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        
-        if (line.empty()) continue;
+        std::streampos pos = file.tellg();
+        if (!std::getline(file, line)) {
+            break;
+        }
 
-        Record r = parseRow(line, headers);
-        if (r.fields.count(attribute)) {
-            search_index[attribute][r.fields.at(attribute)].push_back(pos);
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line.empty()) {
+            continue;
+        }
+
+        Record record = parseRow(line, headers);
+        auto it = record.fields.find(attribute);
+        if (it != record.fields.end()) {
+            indexManager.insert(attribute, it->second, pos);
         }
     }
-    if(first) std::cout<<"Index created for attribute "<<attribute<<std::endl;
+
+    if (first) {
+        std::cout << "Index created for attribute " << attribute << std::endl;
+    }
 }
+
+
+// void createIndex(const std::string& attribute,const bool& first) {
+//     // Clear the existing index for this attribute
+//     search_index[attribute].clear();
+    
+//     std::ifstream file(getDBPath(), std::ios::binary);
+//     if (!file) {
+//         std::cout << "Error opening DB file for index creation: " << getDBPath().string() << "\n";
+//         return;
+//     }
+//     auto headers = getHeaders();
+//     std::string dummy;
+//     std::getline(file, dummy); // Skip the header line
+
+//     std::string line;
+//     while (true) {
+//         std::streampos pos = file.tellg(); // This is the start of the current record
+//         if (!std::getline(file, line)) break;
+        
+//         // Remove line endings in binary mode
+//         if (!line.empty() && line.back() == '\r') line.pop_back();
+        
+//         if (line.empty()) continue;
+
+//         Record r = parseRow(line, headers);
+//         if (r.fields.count(attribute)) {
+//             search_index[attribute][r.fields.at(attribute)].push_back(pos);
+//         }
+//     }
+//     if(first) std::cout<<"Index created for attribute "<<attribute<<std::endl;
+// }
 
 #include <iostream>
 #include <fstream>
@@ -115,68 +347,10 @@ void createIndex(const std::string& attribute,const bool& first) {
 #include <unordered_map>
 #include <string>
 
-void saveIndexes(search_index_struct& index, const std::string& filename) {
-    std::ofstream out(filename, std::ios::binary);
-    
-    size_t size1 = index.size();
-    out.write(reinterpret_cast<const char*>(&size1), sizeof(size1));
-
-    for (const auto& [file, inner_map] : index) {
-        size_t len = file.size();
-        out.write(reinterpret_cast<const char*>(&len), sizeof(len));
-        out.write(file.data(), len);
-
-        size_t size2 = inner_map.size();
-        out.write(reinterpret_cast<const char*>(&size2), sizeof(size2));
-
-        for (const auto& [word, positions] : inner_map) {
-            size_t word_len = word.size();
-            out.write(reinterpret_cast<const char*>(&word_len), sizeof(word_len));
-            out.write(word.data(), word_len);
-
-            size_t vec_size = positions.size();
-            out.write(reinterpret_cast<const char*>(&vec_size), sizeof(vec_size));
-            for (std::streampos pos : positions) {
-                long long p = static_cast<long long>(pos);
-                out.write(reinterpret_cast<const char*>(&p), sizeof(p));
-            }
-        }
-    }
+void saveIndexes(const std::string& filename) {
+    getIndexManager().saveToFile(filename);
 }
 
-void loadIndexes(search_index_struct& index, const std::string& filename) {
-    std::ifstream in(filename, std::ios::binary);
-    index.clear();
-
-    size_t size1;
-    in.read(reinterpret_cast<char*>(&size1), sizeof(size1));
-
-    for (size_t i = 0; i < size1; ++i) {
-        size_t len;
-        in.read(reinterpret_cast<char*>(&len), sizeof(len));
-        std::string file(len, ' ');
-        in.read(&file[0], len);
-
-        size_t size2;
-        in.read(reinterpret_cast<char*>(&size2), sizeof(size2));
-        
-        auto& inner_map = index[file];
-        for (size_t j = 0; j < size2; ++j) {
-            size_t word_len;
-            in.read(reinterpret_cast<char*>(&word_len), sizeof(word_len));
-            std::string word(word_len, ' ');
-            in.read(&word[0], word_len);
-
-            size_t vec_size;
-            in.read(reinterpret_cast<char*>(&vec_size), sizeof(vec_size));
-            std::vector<std::streampos>& positions = inner_map[word];
-            positions.reserve(vec_size);
-
-            for (size_t k = 0; k < vec_size; ++k) {
-                long long p;
-                in.read(reinterpret_cast<char*>(&p), sizeof(p));
-                positions.push_back(static_cast<std::streampos>(p));
-            }
-        }
-    }
+void loadIndexes(const std::string& filename) {
+    getIndexManager().loadFromFile(filename);
 }

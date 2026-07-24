@@ -10,14 +10,15 @@
 #include<filesystem>
 
 namespace fs = std::filesystem;
-std::string index_file = "./data/search_index.bin";
+std::string index_file = "../data/search_index.bin";
+
+Query parse(const std::string& input);
+bool validate(const Query& q);
 
 int main(){
     std::string input;
-    search_index.clear();
-
     if(fs::exists(index_file)){
-        loadIndexes(search_index,index_file);
+        loadIndexes(index_file);
     }else{
         createIndex("id");
         std::cout<<"created index id"<<std::endl;
@@ -28,7 +29,7 @@ int main(){
         std::getline(std::cin,input);
         
         if(input == "exit"){
-            saveIndexes(search_index,index_file);
+            saveIndexes(index_file);
             break;
         }
 
@@ -41,7 +42,7 @@ int main(){
                 continue;
             }
             insertRecord(q);
-            for(auto& [attribute,_] : search_index){
+            for(const auto& attribute : getIndexNames()){
                 createIndex(attribute);
             }
         }
@@ -56,7 +57,7 @@ int main(){
                 continue;
             }
             deleteRecord(q);
-            for(auto& [attribute,_] : search_index){
+            for(const auto& attribute : getIndexNames()){
                 createIndex(attribute);
             }
         }
@@ -65,7 +66,7 @@ int main(){
                 continue;
             }
             updateRecord(q);
-            for(auto& [attribute,_] : search_index){
+            for(const auto& attribute : getIndexNames()){
                 createIndex(attribute);
             }
         }
@@ -73,13 +74,13 @@ int main(){
             if(!validate(q)){
                 continue;
             }
-            if(search_index.count(q.index_column)){
+            if(hasIndex(q.index_column)){
                 std::cout<<"Index already exists."<<std::endl;
                 continue;
             }
            createIndex(q.index_column,true);
         }
-        if(q.type == "help"){
+        else if(q.type == "help"){
             std::cout<<"COMMANDS:\n1.INSERT(insert id=1 name=john age=34)\n2.SELECT(select id=4)\n3.DELETE(delete id=4)\n4.UPDATE(update id=4 set name=johndoe)\nINDEX(index age)\n";
         }
         else{

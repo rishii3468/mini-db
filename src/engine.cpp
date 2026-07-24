@@ -11,18 +11,18 @@
 
 namespace fs = std::filesystem;
 
+std::vector<std::string> getHeaders();
 
-const std::string DB_PATH = "data/database.csv";
-const std::string TMP_PATH = "data/database.tmp";
+std::vector<Record> readAll();
 
-
+Record parseRow(std::string line, const std::vector<std::string>& headers);
 
 void insertRecord(const Query& query) {
 
-    std::ofstream file(DB_PATH, std::ios::app);
+    std::ofstream file(getDBPath(), std::ios::app);
 
     if (!file) {
-        std::cout << "Error opening database file!\n";
+        std::cout << "Error opening database file: " << getDBPath().string() << "\n";
         return;
     }
 
@@ -57,14 +57,15 @@ void selectRecord(const Query& query) {
     bool found = false;
     if(query.data.size() == 1){
         for(auto& [key,value] : query.data){
-            if(search_index.count(key)){
-                if(search_index[key].count(value)){
-                    std::ifstream file(DB_PATH, std::ios::binary);
+            if(hasIndex(key)){
+                std::cout<<"[DEBUG]: Using BTrees."<<std::endl;
+                auto positions = findIndexedPositions(key, value);
+                if (!positions.empty()){
+                    std::ifstream file(getDBPath(), std::ios::binary);
                     if (!file) {
-                        std::cout << "Error opening file\n";
+                        std::cout << "Error opening file: " << getDBPath().string() << "\n";
                         return;
                     }
-                    std::vector<std::streampos> positions = search_index[key][value];
                     file.clear();
 
 
@@ -126,65 +127,143 @@ void selectRecord(const Query& query) {
 }
 
 
+
+// void deleteRecord(const Query& query) {
+//     if (query.data.empty()) {
+//         std::cout << "DELETE requires conditions\n";
+//         return;
+//     }
+
+//     // 1. Fetch data and completely let go of the original file
+//     std::vector<std::string> headers = getHeaders();
+//     std::vector<Record> records = readAll();
+
+//     // 2. Write to temp file inside an isolated scope
+//     {
+//         std::ofstream tempFile(getTmpPath());
+
+//         if (!tempFile) {
+//             std::cout << "Error creating temp file: " << getTmpPath().string() << "\n";
+//             return;
+//         }
+
+//         // Write headers
+//         for (size_t i = 0; i < headers.size(); i++) {
+//             tempFile << headers[i];
+//             if (i != headers.size() - 1) tempFile << ",";
+//         }
+//         tempFile << "\n";
+
+//         // Write non-matching records
+//         for (auto& record : records) {
+//             bool match = true;
+
+//             for (const auto& [key, value] : query.data) {
+//                 if (record.fields.count(key) == 0 || record.fields.at(key) != value) {
+//                     match = false;
+//                     break;
+//                 }
+//             }
+
+//             if (!match) {
+//                 for (size_t i = 0; i < headers.size(); i++) {
+//                     if (record.fields.count(headers[i])) {
+//                         tempFile << record.fields.at(headers[i]);
+//                     } // Empty string implicitly handled by commas
+                    
+//                     if (i != headers.size() - 1) tempFile << ",";
+//                 }
+//                 tempFile << "\n";
+//             }
+//         }
+//     } 
+
+//     try {
+//         fs::path targetDb = getDBPath();
+//         fs::path tempDb = getTmpPath();
+
+
+//         if (fs::exists(targetDb)) {
+//             fs::remove(targetDb);
+//         }
+        
+//         fs::rename(tempDb, targetDb);
+//         std::cout << "Record deleted successfully.\n";
+//     } catch (const fs::filesystem_error& e) {
+//         std::cout << "File error: " << e.what() << "\n";
+//     }
+// }
+
+
 void deleteRecord(const Query& query) {
     if (query.data.empty()) {
         std::cout << "DELETE requires conditions\n";
         return;
     }
 
+
     std::vector<std::string> headers = getHeaders();
-    std::vector<Record> records = readAll();
 
-    std::ofstream file(TMP_PATH);
+    fs::path dbPath = getDBPath();
+    fs::path tmpPath = getTmpPath();
 
-    if (!file) {
-        std::cout << "Error creating temp file!\n";
+    std::ifstream srcFile(dbPath);
+    if (!srcFile) {
+        std::cout << "Error opening database file: " << dbPath.string() << "\n";
         return;
     }
 
-    for (size_t i = 0; i < headers.size(); i++) {
-        file << headers[i];
-        if (i != headers.size() - 1) file << ",";
+    std::ofstream tmpFile(tmpPath);
+    if (!tmpFile) {
+        std::cout << "Error creating temp file: " << tmpPath.string() << "\n";
+        return;
     }
-    file << "\n";
 
-    for (auto& record : records) {
+    std::string headerLine;
+    if (!std::getline(srcFile, headerLine)) {
+        return; 
+    }
+    tmpFile << headerLine << "\n";
+
+
+    std::string line;
+    while (std::getline(srcFile, line)) {
+        if (line.empty()) continue;
+
+        Record record = parseRow(line, headers);
+
+        
         bool match = true;
-
         for (const auto& [key, value] : query.data) {
-            if (record.fields.count(key) == 0 ||
-                record.fields.at(key) != value) {
+            auto it = record.fields.find(key);
+            if (it == record.fields.end() || it->second != value) {
                 match = false;
                 break;
             }
         }
 
+        
         if (!match) {
-            for (size_t i = 0; i < headers.size(); i++) {
-                if (record.fields.count(headers[i])) {
-                    file << record.fields.at(headers[i]);
-                } else {
-                    file << "";
-                }
-
-                if (i != headers.size() - 1) file << ",";
-            }
-            file << "\n";
+            tmpFile << line << "\n";
         }
     }
 
-    file.close();
+    
+    srcFile.close();
+    tmpFile.close();
+
 
     try {
-        if (fs::exists(DB_PATH)) {
-            fs::remove(DB_PATH);
+        if (fs::exists(dbPath)) {
+            fs::remove(dbPath); 
         }
-        fs::rename(TMP_PATH, DB_PATH);
+        fs::rename(tmpPath, dbPath);
+        std::cout << "Delete operation completed successfully.\n";
     } catch (const fs::filesystem_error& e) {
-        std::cout << "File error: " << e.what() << "\n";
+        std::cout << "File replacement error: " << e.what() << "\n";
     }
-
 }
+
 
 void updateRecord(const Query& q){
     if(q.data.empty()){
@@ -197,7 +276,7 @@ void updateRecord(const Query& q){
     auto headers = getHeaders();
     auto records = readAll();
 
-    std::ofstream file(TMP_PATH);
+    std::ofstream file(getTmpPath());
 
     for(int i=0;i<headers.size();i++){
         file << headers[i];
@@ -234,10 +313,10 @@ void updateRecord(const Query& q){
     file.close();
 
     try {
-        if (fs::exists(DB_PATH)) {
-            fs::remove(DB_PATH);
+        if (fs::exists(getDBPath())) {
+            fs::remove(getDBPath());
         }
-        fs::rename(TMP_PATH, DB_PATH);
+        fs::rename(getTmpPath(), getDBPath());
     } catch (const fs::filesystem_error& e) {
         std::cout << "File error: " << e.what() << "\n";
     }
