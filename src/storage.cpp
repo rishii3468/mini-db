@@ -66,17 +66,17 @@ public:
     }
 
     std::vector<std::streampos> find(const std::string& index_name, const std::string& key) const {
-        auto data_it = index_data_.find(index_name);
-        if (data_it == index_data_.end()) {
+        auto tree_it = indexes_.find(index_name);
+        if (tree_it == indexes_.end()) {
             return {};
         }
 
-        auto value_it = data_it->second.find(key);
-        if (value_it == data_it->second.end()) {
+        auto value = tree_it->second->find(key);
+        if (!value.has_value()) {
             return {};
         }
 
-        return value_it->second;
+        return value.value();
     }
 
     std::vector<std::string> getIndexNames() const {
